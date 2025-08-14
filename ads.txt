@@ -1,0 +1,4 @@
+# Authorized digital sellers for this domain
+# AdSense (Google)
+google.com, ca-pub-1372611324169756, DIRECT, f08c47fec0942fa0
+
