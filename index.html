@@ -40,6 +40,14 @@
           <h2 id="setup-title">Quick Budget Setup</h2>
           <div class="inline-controls">
             <label>
+              <span>Account</span>
+              <div class="account-controls">
+                <select id="accountSelect" aria-label="Select account"></select>
+                <button id="renameAccountBtn" type="button" class="secondary small-btn">Rename</button>
+                <button id="addAccountBtn" type="button" class="primary small-btn">Add</button>
+              </div>
+            </label>
+            <label>
               <span>Month</span>
               <input id="monthInput" type="month" />
             </label>
@@ -48,26 +56,37 @@
               <select id="currencySelect" aria-label="Select currency">
                 <option value="AUD">AUD A$</option>
                 <option value="BRL">BRL R$</option>
+                <option value="BGN">BGN лв</option>
                 <option value="CAD">CAD C$</option>
                 <option value="CHF">CHF Fr.</option>
                 <option value="CNY">CNY ¥</option>
                 <option value="CZK">CZK Kč</option>
+                <option value="AED">AED د.إ</option>
+                <option value="ARS">ARS $</option>
                 <option value="DKK">DKK kr</option>
                 <option value="EUR">EUR €</option>
                 <option value="GBP">GBP £</option>
                 <option value="HKD">HKD HK$</option>
                 <option value="HUF">HUF Ft</option>
                 <option value="INR">INR ₹</option>
+                <option value="IDR">IDR Rp</option>
+                <option value="ILS">ILS ₪</option>
                 <option value="JPY">JPY ¥</option>
+                <option value="KRW">KRW ₩</option>
                 <option value="MXN">MXN Mex$</option>
                 <option value="NOK">NOK kr</option>
                 <option value="NZD">NZD NZ$</option>
+                <option value="MYR">MYR RM</option>
                 <option value="PLN">PLN zł</option>
                 <option value="RON">RON lei</option>
                 <option value="SEK">SEK kr</option>
                 <option value="SGD">SGD S$</option>
+                <option value="THB">THB ฿</option>
                 <option value="TRY">TRY ₺</option>
+                <option value="TWD">TWD NT$</option>
                 <option value="USD" selected>USD $</option>
+                <option value="UAH">UAH ₴</option>
+                <option value="VND">VND ₫</option>
                 <option value="ZAR">ZAR R</option>
               </select>
             </label>
@@ -78,26 +97,37 @@
                   <select id="secondaryCurrencySelect" aria-label="Select secondary currency">
                     <option value="AUD">AUD A$</option>
                     <option value="BRL">BRL R$</option>
+                    <option value="BGN">BGN лв</option>
                     <option value="CAD">CAD C$</option>
                     <option value="CHF">CHF Fr.</option>
                     <option value="CNY">CNY ¥</option>
                     <option value="CZK">CZK Kč</option>
+                    <option value="AED">AED د.إ</option>
+                    <option value="ARS">ARS $</option>
                     <option value="DKK">DKK kr</option>
                     <option value="EUR">EUR €</option>
                     <option value="GBP">GBP £</option>
                     <option value="HKD">HKD HK$</option>
                     <option value="HUF">HUF Ft</option>
                     <option value="INR">INR ₹</option>
+                    <option value="IDR">IDR Rp</option>
+                    <option value="ILS">ILS ₪</option>
                     <option value="JPY">JPY ¥</option>
+                    <option value="KRW">KRW ₩</option>
                     <option value="MXN">MXN Mex$</option>
                     <option value="NOK">NOK kr</option>
                     <option value="NZD">NZD NZ$</option>
+                    <option value="MYR">MYR RM</option>
                     <option value="PLN">PLN zł</option>
                     <option value="RON">RON lei</option>
                     <option value="SEK">SEK kr</option>
                     <option value="SGD">SGD S$</option>
+                    <option value="THB">THB ฿</option>
                     <option value="TRY">TRY ₺</option>
+                    <option value="TWD">TWD NT$</option>
                     <option value="USD">USD $</option>
+                    <option value="UAH">UAH ₴</option>
+                    <option value="VND">VND ₫</option>
                     <option value="ZAR">ZAR R</option>
                   </select>
                 </label>
@@ -202,9 +232,71 @@
           </div>
         </div>
 
+        <!-- Days card moved outside of Summary section -->
+
         <div class="toolbar">
           <button id="exportCsvBtn" type="button">Export CSV</button>
+          <input id="importCsvFile" type="file" accept=".csv,text/csv" style="display:none" />
+          <button id="importCsvBtn" class="secondary" type="button">Import CSV</button>
           <button id="printBtn" class="secondary" type="button">Print / Save PDF</button>
+        </div>
+      </section>
+
+      <!-- Days card removed from here; will be placed after Transactions -->
+
+      <section class="card" aria-labelledby="transactions-title">
+        <div class="section-header">
+          <h2 id="transactions-title">Transactions</h2>
+          <div class="inline-controls tx-controls">
+            <label>
+              <span>Date</span>
+              <input id="txDateInput" type="date" />
+            </label>
+            <label>
+              <span>Description</span>
+              <input id="txDescInput" type="text" placeholder="Grocery Store" />
+            </label>
+            <label>
+              <span>Category (optional)</span>
+              <select id="txCategorySelect"></select>
+            </label>
+            <label>
+              <span>Type</span>
+              <select id="txTypeSelect">
+                <option value="expense" selected>Expense</option>
+                <option value="income">Income</option>
+              </select>
+            </label>
+            <label>
+              <span>Amount</span>
+              <input id="txAmountInput" type="number" min="0" step="0.01" placeholder="0.00" />
+            </label>
+            <button id="addTxBtn" type="button">Add</button>
+          </div>
+        </div>
+        <p class="description">Add daily transactions here. View and manage them by day in the Days section below.</p>
+      </section>
+
+      <!-- Dedicated Days card placed after Transactions -->
+      <section class="card" aria-labelledby="days-title">
+        <div class="section-header">
+          <h2 id="days-title">Days</h2>
+        </div>
+        <div id="dayGrid" class="day-grid" aria-label="Days in month"></div>
+        <div id="dayTxPanel" class="day-panel">
+          <div class="day-panel-header">
+            <span id="dayPanelLabel">Select a day</span>
+          </div>
+          <div class="table-wrap tx-table small">
+            <div class="table-head">
+              <div>Description</div>
+              <div>Category</div>
+              <div>Type</div>
+              <div class="right">Amount</div>
+              <div class="center">Action</div>
+            </div>
+            <div id="dayTxList" class="table-body"></div>
+          </div>
         </div>
       </section>
     </main>
@@ -220,6 +312,10 @@
       window.addEventListener('afterprint', () => { try { if (window.donutChart) window.donutChart.resize(); if (window.barChart) window.barChart.resize(); } catch (e) {} });
     </script>
     <script src="./script.js"></script>
+    <div class="mobile-sticky">
+      <button id="mobileAddTxBtn" class="primary">Add Transaction</button>
+      <button id="mobileSaveBtn" class="secondary">Save Budget</button>
+    </div>
   </body>
   </html>
 
