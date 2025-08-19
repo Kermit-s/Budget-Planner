@@ -305,6 +305,11 @@
       <p>Built for simplicity. Your data stays in your browser.</p>
     </footer>
 
+    <div class="mobile-sticky">
+      <button id="mobileAddTxBtn" class="primary">Add Transaction</button>
+      <button id="mobileSaveBtn" class="secondary">Save Budget</button>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script>
       // Improve Chart.js print rendering by redrawing before print
@@ -312,10 +317,6 @@
       window.addEventListener('afterprint', () => { try { if (window.donutChart) window.donutChart.resize(); if (window.barChart) window.barChart.resize(); } catch (e) {} });
     </script>
     <script src="./script.js"></script>
-    <div class="mobile-sticky">
-      <button id="mobileAddTxBtn" class="primary">Add Transaction</button>
-      <button id="mobileSaveBtn" class="secondary">Save Budget</button>
-    </div>
   </body>
   </html>
 
