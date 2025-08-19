@@ -53,7 +53,16 @@ body {
 .icon-btn { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--elev); border: 1px solid var(--border); color: var(--text); }
 .icon-btn:hover { transform: translateY(-1px); }
 
-.grid { display: grid; grid-template-columns: 1fr; gap: 20px; padding-bottom: 40px; }
+.grid { display: grid; grid-template-columns: 1fr; gap: 24px; padding-bottom: 80px; }
+@media (max-width: 480px) {
+  .grid { gap: 16px; padding-bottom: 120px; }
+  .card { padding: 14px; }
+  .inline-controls { gap: 10px; }
+  .inline-controls label { min-width: min(46vw, 280px); }
+  .tx-controls label { min-width: 48%; flex: 1 1 48%; }
+  .tx-controls input, .tx-controls select { width: 100%; }
+  .chart-card { padding: 10px; }
+}
 @media (min-width: 960px) {
   .grid { grid-template-columns: 1.1fr 0.9fr; }
 }
@@ -70,6 +79,8 @@ body {
 .section-header h2 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: 0.2px; }
 .inline-controls { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
 .inline-controls label { display: grid; gap: 6px; font-size: 12px; color: var(--muted); }
+.account-controls { display: inline-flex; gap: 8px; align-items: center; }
+.small-btn { padding: 6px 10px; border-radius: 8px; }
 .secondary-controls { display: flex; align-items: end; gap: 8px; }
 .sc-wrap { display: flex; align-items: end; gap: 8px; }
 .hidden { display: none; }
@@ -145,7 +156,39 @@ html.light .progress { background: #f1f5f9; }
 .chart-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--elev); }
 .chart-title { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
 
+.tx-table .table-head, .tx-table .table-row { grid-template-columns: 0.9fr 1.2fr 0.8fr 0.6fr 0.5fr 0.3fr; }
+.description { font-size: 12px; color: var(--muted); margin: 6px 0 10px; }
+
+/* Transactions compact layout */
+.tx-controls { flex-wrap: wrap; gap: 12px; }
+.tx-controls label { min-width: 160px; }
+.tx-controls input[type="text"] { min-width: 220px; }
+.tx-controls input[type="date"] { min-width: 160px; }
+.tx-controls input[type="number"] { min-width: 140px; }
+.tx-controls select { min-width: 160px; }
+
+/* Day grid widget */
+.day-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(48px, 56px)); gap: 12px; padding: 6px; margin: 10px 0 14px; justify-content: start; }
+.day { width: 100%; aspect-ratio: 1 / 1; min-width: 48px; display: grid; place-items: center; border-radius: 999px; border: 1px solid var(--border); background: var(--elev); color: var(--text); cursor: pointer; transition: transform .08s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease; box-shadow: var(--shadow); font-weight: 600; }
+@media (max-width: 480px) {
+  .day-grid { grid-template-columns: repeat(auto-fit, minmax(40px, 44px)); gap: 10px; }
+  .day { min-width: 40px; }
+}
+.day:hover { transform: translateY(-1px); }
+.day.selected { outline: 2px solid var(--primary); box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 30%, transparent); }
+.day.has-tx { border-color: #34d399AA; background: linear-gradient(180deg, #0e7a5a22, transparent); }
+.day.disabled { opacity: 0.35; cursor: default; }
+
+.day-panel { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--elev); margin-bottom: 12px; }
+.day-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; color: var(--muted); font-size: 12px; }
+.tx-table.small .table-head, .tx-table.small .table-row { grid-template-columns: 1.2fr 0.8fr 0.6fr 0.5fr 0.3fr; }
+
 .footer { padding: 26px 0 60px; text-align: center; color: var(--muted); font-size: 12px; }
+
+/* Mobile sticky bar */
+.mobile-sticky { position: fixed; inset: auto 0 0 0; display: none; gap: 10px; padding: 10px 12px; background: linear-gradient(180deg, rgba(0,0,0,0), var(--surface)); border-top: 1px solid var(--border); backdrop-filter: blur(6px); z-index: 999; }
+.mobile-sticky button { flex: 1; }
+@media (max-width: 720px) { .mobile-sticky { display: flex; } }
 
 /* Print styles: white background, simplified */
 @media print {
