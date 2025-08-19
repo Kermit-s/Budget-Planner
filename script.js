@@ -108,79 +108,79 @@
 
   init();
 
+  function onDomReady(cb){ if(document.readyState!=='loading') cb(); else document.addEventListener('DOMContentLoaded', cb); }
+
   function init() {
-    // Theme
-    const savedTheme = localStorage.getItem(THEME_KEY);
-    const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
-    const isLight = savedTheme ? savedTheme === 'light' : prefersLight;
-    setTheme(isLight ? 'light' : 'dark');
-    els.themeToggle.checked = !isLight ? true : false;
-    els.themeToggle.addEventListener('change', () => setTheme(els.themeToggle.checked ? 'dark' : 'light'));
+    onDomReady(() => {
+      // Theme
+      const savedTheme = localStorage.getItem(THEME_KEY);
+      const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+      const isLight = savedTheme ? savedTheme === 'light' : prefersLight;
+      setTheme(isLight ? 'light' : 'dark');
+      els.themeToggle.checked = !isLight ? true : false;
+      els.themeToggle.addEventListener('change', () => setTheme(els.themeToggle.checked ? 'dark' : 'light'));
 
-    // Wire inputs
-    els.monthInput.value = state.month || formatMonthInputValue(new Date());
-    updateMonthBadge();
-    els.currencySelect.value = state.currency;
-    els.incomeInput.value = toInput(currentBudget().income);
-    els.goalInput.value = toInput(currentBudget().goal);
-    if (els.txDateInput) els.txDateInput.value = `${state.month}-01`;
+      // Wire inputs
+      els.monthInput.value = state.month || formatMonthInputValue(new Date());
+      updateMonthBadge();
+      els.currencySelect.value = state.currency;
+      els.incomeInput.value = toInput(currentBudget().income);
+      els.goalInput.value = toInput(currentBudget().goal);
+      if (els.txDateInput) els.txDateInput.value = `${state.month}-01`;
 
-    // Accounts
-    wireAccountsUI();
+      // Accounts
+      wireAccountsUI();
 
-    els.currencySelect.addEventListener('change', async () => { state.currency = els.currencySelect.value; await refreshFxRate(); render(); persist(); });
-    if (document.getElementById('secondaryCurrencySelect')) document.getElementById('secondaryCurrencySelect').addEventListener('change', async () => { state.secondaryCurrency.enabled = true; state.secondaryCurrency.code = document.getElementById('secondaryCurrencySelect').value; await refreshFxRate(); persist(); render(); });
-    if (document.getElementById('removeCurrencyBtn')) document.getElementById('removeCurrencyBtn').addEventListener('click', removeSecondaryCurrency);
+      els.currencySelect.addEventListener('change', async () => { state.currency = els.currencySelect.value; await refreshFxRate(); render(); persist(); });
+      if (document.getElementById('secondaryCurrencySelect')) document.getElementById('secondaryCurrencySelect').addEventListener('change', async () => { state.secondaryCurrency.enabled = true; state.secondaryCurrency.code = document.getElementById('secondaryCurrencySelect').value; await refreshFxRate(); persist(); render(); });
+      if (document.getElementById('removeCurrencyBtn')) document.getElementById('removeCurrencyBtn').addEventListener('click', removeSecondaryCurrency);
 
-    els.incomeInput.addEventListener('input', () => { currentBudget().income = toNumber(els.incomeInput.value); render(); setDirty(); });
-    els.goalInput.addEventListener('input', () => { currentBudget().goal = toNumber(els.goalInput.value); render(); setDirty(); });
-    els.monthInput.addEventListener('change', () => { switchToMonth(els.monthInput.value); setDirty(false, true); });
+      els.incomeInput.addEventListener('input', () => { currentBudget().income = toNumber(els.incomeInput.value); render(); setDirty(); });
+      els.goalInput.addEventListener('input', () => { currentBudget().goal = toNumber(els.goalInput.value); render(); setDirty(); });
+      els.monthInput.addEventListener('change', () => { switchToMonth(els.monthInput.value); setDirty(false, true); });
 
-    els.addCategoryBtn.addEventListener('click', addCustomCategory);
-    // removed 50/30/20 template button
-    els.saveBtn.addEventListener('click', () => { persist(true); setDirty(false, true); flash(els.saveBtn); showSavedToast(); });
-    els.resetBtn.addEventListener('click', resetAll);
-    els.exportCsvBtn.addEventListener('click', exportCsv);
-    els.printBtn.addEventListener('click', () => window.print());
-    if (els.prevMonthBtn) els.prevMonthBtn.addEventListener('click', () => shiftMonth(-1));
-    if (els.nextMonthBtn) els.nextMonthBtn.addEventListener('click', () => shiftMonth(1));
-    if (els.addTxBtn) els.addTxBtn.addEventListener('click', addTransaction);
+      els.addCategoryBtn.addEventListener('click', addCustomCategory);
+      els.saveBtn.addEventListener('click', () => { persist(true); setDirty(false, true); flash(els.saveBtn); showSavedToast(); });
+      els.resetBtn.addEventListener('click', resetAll);
+      els.exportCsvBtn.addEventListener('click', exportCsv);
+      els.printBtn.addEventListener('click', () => window.print());
+      if (els.prevMonthBtn) els.prevMonthBtn.addEventListener('click', () => shiftMonth(-1));
+      if (els.nextMonthBtn) els.nextMonthBtn.addEventListener('click', () => shiftMonth(1));
+      if (els.addTxBtn) els.addTxBtn.addEventListener('click', addTransaction);
 
-    const importBtn = document.getElementById('importCsvBtn');
-    const importFile = document.getElementById('importCsvFile');
-    if (importBtn && importFile) {
-      importBtn.addEventListener('click', () => importFile.click());
-      importFile.addEventListener('change', handleImportCsv);
-    }
+      const importBtn = document.getElementById('importCsvBtn');
+      const importFile = document.getElementById('importCsvFile');
+      if (importBtn && importFile) {
+        importBtn.addEventListener('click', () => importFile.click());
+        importFile.addEventListener('change', handleImportCsv);
+      }
 
-    // Mobile sticky actions
-    const mobileAdd = document.getElementById('mobileAddTxBtn');
-    const mobileSave = document.getElementById('mobileSaveBtn');
-    if (mobileAdd) mobileAdd.onclick = () => {
-      try {
-        // Jump to today’s month and select day
-        const today = new Date();
-        const targetMonth = formatMonthInputValue(today);
-        if (state.month !== targetMonth) { els.monthInput.value = targetMonth; switchToMonth(targetMonth); }
-        const day = today.getDate();
-        selectDay(day);
-        // Focus description input for quick entry
-        if (els.txDescInput) els.txDescInput.focus();
-        if (els.txDateInput) els.txDateInput.value = `${targetMonth}-${String(day).padStart(2,'0')}`;
-      } catch {}
-    };
-    if (mobileSave) mobileSave.onclick = () => { persist(true); showSavedToast(); };
+      // Mobile sticky actions
+      const mobileAdd = document.getElementById('mobileAddTxBtn');
+      const mobileSave = document.getElementById('mobileSaveBtn');
+      if (mobileAdd) mobileAdd.onclick = () => {
+        try {
+          const today = new Date();
+          const targetMonth = formatMonthInputValue(today);
+          if (state.month !== targetMonth) { els.monthInput.value = targetMonth; switchToMonth(targetMonth); }
+          const day = today.getDate();
+          selectDay(day);
+          if (els.txDescInput) els.txDescInput.focus();
+          if (els.txDateInput) els.txDateInput.value = `${targetMonth}-${String(day).padStart(2,'0')}`;
+        } catch {}
+      };
+      if (mobileSave) mobileSave.onclick = () => { persist(true); showSavedToast(); };
 
-    // Initial FX fetch if secondary enabled
-    if (state.secondaryCurrency && state.secondaryCurrency.enabled) { refreshFxRate().then(() => render()); }
+      // Initial FX fetch if secondary enabled
+      if (state.secondaryCurrency && state.secondaryCurrency.enabled) { refreshFxRate().then(() => render()); }
 
-    // Auto-save on unload
-    window.addEventListener('beforeunload', () => { try { persist(true); } catch {} });
+      window.addEventListener('beforeunload', () => { try { persist(true); } catch {} });
 
-    renderCategories();
-    populateTxCategoryOptions();
-    renderDayGrid();
-    render();
+      renderCategories();
+      populateTxCategoryOptions();
+      renderDayGrid();
+      render();
+    });
   }
 
   function wireAccountsUI() {
