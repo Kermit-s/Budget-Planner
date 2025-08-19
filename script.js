@@ -35,6 +35,17 @@
     HUF: { symbol: 'Ft', locale: 'hu-HU' },
     TRY: { symbol: '₺', locale: 'tr-TR' },
     RON: { symbol: 'lei', locale: 'ro-RO' },
+    AED: { symbol: 'د.إ', locale: 'ar-AE' },
+    ARS: { symbol: '$', locale: 'es-AR' },
+    BGN: { symbol: 'лв', locale: 'bg-BG' },
+    IDR: { symbol: 'Rp', locale: 'id-ID' },
+    ILS: { symbol: '₪', locale: 'he-IL' },
+    KRW: { symbol: '₩', locale: 'ko-KR' },
+    MYR: { symbol: 'RM', locale: 'ms-MY' },
+    THB: { symbol: '฿', locale: 'th-TH' },
+    TWD: { symbol: 'NT$', locale: 'zh-TW' },
+    UAH: { symbol: '₴', locale: 'uk-UA' },
+    VND: { symbol: '₫', locale: 'vi-VN' },
   };
 
   const els = {
@@ -67,9 +78,22 @@
     printBtn: document.getElementById('printBtn'),
     donutCanvas: document.getElementById('donutChart'),
     barCanvas: document.getElementById('barChart'),
+    txDateInput: document.getElementById('txDateInput'),
+    txDescInput: document.getElementById('txDescInput'),
+    txCategorySelect: document.getElementById('txCategorySelect'),
+    txTypeSelect: document.getElementById('txTypeSelect'),
+    txAmountInput: document.getElementById('txAmountInput'),
+    addTxBtn: document.getElementById('addTxBtn'),
+    txList: document.getElementById('txList'),
+    dayGrid: document.getElementById('dayGrid'),
+    dayTxList: document.getElementById('dayTxList'),
+    dayPanelLabel: document.getElementById('dayPanelLabel'),
+    accountSelect: document.getElementById('accountSelect'),
+    renameAccountBtn: document.getElementById('renameAccountBtn'),
+    addAccountBtn: document.getElementById('addAccountBtn'),
   };
 
-  const STORAGE_KEY = 'budget_planner_state_v4';
+  const STORAGE_KEY = 'budget_planner_state_v5';
   const THEME_KEY = 'budget_planner_theme';
 
   /** State */
@@ -99,6 +123,10 @@
     els.currencySelect.value = state.currency;
     els.incomeInput.value = toInput(currentBudget().income);
     els.goalInput.value = toInput(currentBudget().goal);
+    if (els.txDateInput) els.txDateInput.value = `${state.month}-01`;
+
+    // Accounts
+    wireAccountsUI();
 
     els.currencySelect.addEventListener('change', async () => { state.currency = els.currencySelect.value; await refreshFxRate(); render(); persist(); });
     if (document.getElementById('secondaryCurrencySelect')) document.getElementById('secondaryCurrencySelect').addEventListener('change', async () => { state.secondaryCurrency.enabled = true; state.secondaryCurrency.code = document.getElementById('secondaryCurrencySelect').value; await refreshFxRate(); persist(); render(); });
@@ -116,6 +144,32 @@
     els.printBtn.addEventListener('click', () => window.print());
     if (els.prevMonthBtn) els.prevMonthBtn.addEventListener('click', () => shiftMonth(-1));
     if (els.nextMonthBtn) els.nextMonthBtn.addEventListener('click', () => shiftMonth(1));
+    if (els.addTxBtn) els.addTxBtn.addEventListener('click', addTransaction);
+
+    const importBtn = document.getElementById('importCsvBtn');
+    const importFile = document.getElementById('importCsvFile');
+    if (importBtn && importFile) {
+      importBtn.addEventListener('click', () => importFile.click());
+      importFile.addEventListener('change', handleImportCsv);
+    }
+
+    // Mobile sticky actions
+    const mobileAdd = document.getElementById('mobileAddTxBtn');
+    const mobileSave = document.getElementById('mobileSaveBtn');
+    if (mobileAdd) mobileAdd.onclick = () => {
+      try {
+        // Jump to today’s month and select day
+        const today = new Date();
+        const targetMonth = formatMonthInputValue(today);
+        if (state.month !== targetMonth) { els.monthInput.value = targetMonth; switchToMonth(targetMonth); }
+        const day = today.getDate();
+        selectDay(day);
+        // Focus description input for quick entry
+        if (els.txDescInput) els.txDescInput.focus();
+        if (els.txDateInput) els.txDateInput.value = `${targetMonth}-${String(day).padStart(2,'0')}`;
+      } catch {}
+    };
+    if (mobileSave) mobileSave.onclick = () => { persist(true); showSavedToast(); };
 
     // Initial FX fetch if secondary enabled
     if (state.secondaryCurrency && state.secondaryCurrency.enabled) { refreshFxRate().then(() => render()); }
@@ -124,16 +178,67 @@
     window.addEventListener('beforeunload', () => { try { persist(true); } catch {} });
 
     renderCategories();
+    populateTxCategoryOptions();
+    renderDayGrid();
     render();
+  }
+
+  function wireAccountsUI() {
+    if (!els.accountSelect) return;
+    // Ensure initial accounts exist
+    if (!state.accounts) state.accounts = { 'Default': { budgets: {}, monthlyHistory: [], transactions: {} } };
+    if (!state.activeAccount) state.activeAccount = Object.keys(state.accounts)[0] || 'Default';
+
+    const names = Object.keys(state.accounts);
+    els.accountSelect.innerHTML = names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+    els.accountSelect.value = state.activeAccount;
+
+    els.accountSelect.onchange = () => {
+      state.activeAccount = els.accountSelect.value;
+      // Reflect inputs for this account/month
+      els.incomeInput.value = toInput(currentBudget().income);
+      els.goalInput.value = toInput(currentBudget().goal);
+      renderCategories();
+      populateTxCategoryOptions();
+      renderDayGrid();
+      render();
+      persist();
+    };
+
+    if (els.addAccountBtn) els.addAccountBtn.onclick = () => {
+      const name = prompt('New account name');
+      if (!name) return;
+      if (!state.accounts[name]) state.accounts[name] = { budgets: {}, monthlyHistory: [], transactions: {} };
+      state.activeAccount = name;
+      wireAccountsUI();
+      render();
+      persist();
+    };
+
+    if (els.renameAccountBtn) els.renameAccountBtn.onclick = () => {
+      const current = state.activeAccount;
+      const next = prompt('Rename account', current);
+      if (!next || next === current) return;
+      if (state.accounts[next]) { alert('An account with this name already exists.'); return; }
+      state.accounts[next] = state.accounts[current];
+      delete state.accounts[current];
+      state.activeAccount = next;
+      wireAccountsUI();
+      render();
+      persist();
+    };
   }
 
   function createDefaultState() {
     return {
       month: formatMonthInputValue(new Date()),
       currency: 'USD',
-      budgets: {}, // map: month -> { income, goal, categories }
-      monthlyHistory: [], // { month: '2025-08', total: 123 }
+      accounts: { 'Default': { budgets: {}, monthlyHistory: [], transactions: {} } },
+      activeAccount: 'Default',
+      budgets: {}, // deprecated, kept for migration safety
+      monthlyHistory: [], // deprecated
       secondaryCurrency: { enabled: false, code: 'EUR', rate: 0.92, lastUpdated: null }, // rate auto-fetched
+      transactions: {}, // deprecated
     };
   }
 
@@ -143,17 +248,18 @@
 
   function migrateStateIfNeeded(loaded) {
     if (!loaded) return null;
-    // If already v2 format
-    if (loaded && typeof loaded === 'object' && loaded.budgets) return loaded;
+    // If already v2+ format with accounts
+    if (loaded && typeof loaded === 'object' && loaded.accounts) return loaded;
     // v1 -> v2 migration
     const month = loaded.month || formatMonthInputValue(new Date());
     const migrated = {
       month,
       currency: loaded.currency || 'USD',
-      budgets: {},
+      accounts: { 'Default': { budgets: {}, monthlyHistory: Array.isArray(loaded.monthlyHistory) ? loaded.monthlyHistory : [], transactions: loaded.transactions || {} } },
+      activeAccount: 'Default',
       monthlyHistory: Array.isArray(loaded.monthlyHistory) ? loaded.monthlyHistory : [],
     };
-    migrated.budgets[month] = {
+    migrated.accounts['Default'].budgets[month] = {
       income: toNumber(loaded.income),
       goal: toNumber(loaded.goal),
       categories: Array.isArray(loaded.categories) && loaded.categories.length > 0
@@ -175,10 +281,12 @@
 
   function upsertMonthlyHistory() {
     const month = state.month || formatMonthInputValue(new Date());
-    const total = totalExpenses();
-    const idx = state.monthlyHistory.findIndex((m) => m.month === month);
-    if (idx >= 0) state.monthlyHistory[idx].total = total;
-    else state.monthlyHistory.push({ month, total });
+    const total = effectiveExpensesTotal();
+    const acct = getActiveAccount();
+    if (!acct.monthlyHistory) acct.monthlyHistory = [];
+    const idx = acct.monthlyHistory.findIndex((m) => m.month === month);
+    if (idx >= 0) acct.monthlyHistory[idx].total = total;
+    else acct.monthlyHistory.push({ month, total });
   }
 
   function setTheme(mode) {
@@ -189,7 +297,7 @@
   function render() {
     const { symbol, locale } = currencyMap[state.currency] || currencyMap.USD;
     const income = currentBudget().income;
-    const expenses = totalExpenses();
+    const expenses = effectiveExpensesTotal();
     const balance = income - expenses;
 
     els.incomeTotal.textContent = formatCurrency(income, state.currency, locale);
@@ -283,6 +391,17 @@
     if (!els.monthBadge) return;
     const label = formatMonthLabel(state.month || formatMonthInputValue(new Date()));
     els.monthBadge.textContent = label;
+    // Clicking the badge opens a month/year picker
+    els.monthBadge.style.cursor = 'pointer';
+    els.monthBadge.onclick = () => {
+      try {
+        const next = prompt('Jump to month (YYYY-MM):', state.month || formatMonthInputValue(new Date()));
+        if (!next) return;
+        if (!/^\d{4}-\d{2}$/.test(next)) { alert('Format: YYYY-MM'); return; }
+        els.monthInput.value = next;
+        switchToMonth(next);
+      } catch {}
+    };
   }
 
   function indicateSaved() {
@@ -333,10 +452,19 @@
         <div class="center"><button class="danger" type="button">Remove</button></div>
       `;
       const [nameEl, amountEl, colorWrap, removeWrap] = row.children;
-      nameEl.addEventListener('input', () => { category.name = nameEl.value; persist(); setDirty(); });
+      nameEl.addEventListener('input', () => { category.name = nameEl.value; persist(); setDirty(); renderCharts(); renderIncomeBreakdown(); });
       amountEl.addEventListener('input', () => { category.amount = toNumber(amountEl.value); render(); });
       const colorEl = colorWrap.querySelector('input');
-      colorEl.addEventListener('input', () => { category.color = colorEl.value; persist(); renderCharts(); });
+      colorEl.addEventListener('input', () => {
+        category.color = colorEl.value;
+        persist();
+        renderCharts();
+        renderIncomeBreakdown();
+        try {
+          const selectedButton = els.dayGrid && Array.from(els.dayGrid.children).find((c) => c.classList.contains('selected'));
+          if (selectedButton) selectDay(Number(selectedButton.textContent || '0'));
+        } catch {}
+      });
       removeWrap.querySelector('button').addEventListener('click', () => removeCategory(category.id));
       els.categoryList.appendChild(row);
     }
@@ -350,6 +478,8 @@
     els.customCategoryName.value = '';
     els.customCategoryAmount.value = '';
     renderCategories();
+    populateTxCategoryOptions();
+    renderDayGrid();
     render();
   }
 
@@ -357,6 +487,7 @@
     const b = currentBudget();
     b.categories = b.categories.filter((c) => c.id !== categoryId);
     renderCategories();
+    renderDayGrid();
     render();
   }
 
@@ -364,17 +495,14 @@
 
   function renderCharts() {
     const income = currentBudget().income;
-    const expenses = totalExpenses();
+    const expenses = effectiveExpensesTotal();
     const remaining = Math.max(0, income - expenses);
 
     // Donut chart: Expenses vs Remaining income
     if (donutChart) donutChart.destroy();
     donutChart = new Chart(els.donutCanvas, {
       type: 'doughnut',
-      data: {
-        labels: buildDonutLabels(),
-        datasets: [{ data: buildDonutData(expenses, remaining), backgroundColor: buildDonutColors(), borderWidth: 0 }]
-      },
+      data: buildDonutDataset(expenses, remaining),
       options: {
         plugins: {
           legend: { position: 'bottom', labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--muted') } },
@@ -384,10 +512,9 @@
       }
     });
 
-    // Bar chart history across months (sorted chronologically)
-    const historySorted = [...state.monthlyHistory].sort((a, b) => String(a.month).localeCompare(String(b.month)));
-    const months = historySorted.map(m => m.month);
-    const totals = historySorted.map(m => m.total);
+    // Bar chart – show only the currently selected month
+    const months = [state.month];
+    const totals = [effectiveExpensesTotal()];
     if (barChart) barChart.destroy();
     barChart = new Chart(els.barCanvas, {
       type: 'bar',
@@ -438,36 +565,102 @@
   }
 
   function exportCsv() {
-    const rows = [];
-    rows.push(['Month', state.month]);
-    rows.push(['Currency', state.currency]);
-    rows.push(['Income', currentBudget().income]);
-    rows.push([]);
-    rows.push(['Category', 'Amount']);
-    for (const c of currentBudget().categories) rows.push([c.name, c.amount]);
-    rows.push([]);
-    rows.push(['Total Expenses', totalExpenses()]);
-    rows.push(['Balance', currentBudget().income - totalExpenses()]);
-    if (currentBudget().goal > 0) rows.push(['Savings Goal', currentBudget().goal]);
-
-    const csv = rows.map(r => r.map(v => typeof v === 'string' ? `"${v.replace(/"/g, '""')}"` : v).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    // Robust export format (v2): plain two-line header + base64-encoded JSON payload.
+    // Kept as .csv for familiarity, but content is universal and resilient to editors.
+    const json = JSON.stringify(state);
+    const b64 = base64EncodeUtf8(json);
+    const content = [
+      '#BUDGET_PLANNER_EXPORT_V2',
+      `#BASE64:${b64}`
+    ].join('\n');
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `budget_${state.month}.csv`;
+    a.download = `budget_export_${new Date().toISOString().slice(0,10)}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
   }
 
+  async function handleImportCsv(evt) {
+    const file = evt.target && evt.target.files && evt.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const imported = parseExportedStateFromCsv(text);
+
+      // Basic validation
+      if (!imported || typeof imported !== 'object' || !imported.accounts) { alert('Import fehlgeschlagen: Ungültige Datenstruktur.'); return; }
+
+      state = imported;
+      if (els.monthInput) els.monthInput.value = state.month || formatMonthInputValue(new Date());
+      updateMonthBadge();
+      wireAccountsUI();
+      els.currencySelect.value = state.currency;
+      els.incomeInput.value = toInput(currentBudget().income);
+      els.goalInput.value = toInput(currentBudget().goal);
+      renderCategories();
+      populateTxCategoryOptions();
+      renderDayGrid();
+      render();
+      persist(true);
+      showSavedToast();
+    } catch (e) {
+      console.error(e);
+      const msg = e && e.message === 'NO_JSON'
+        ? 'Import fehlgeschlagen: Export-Datei enthält keinen Payload. Bitte eine mit „Export CSV“ erzeugte Datei verwenden.'
+        : 'Import fehlgeschlagen: Datei konnte nicht gelesen oder geparst werden.';
+      alert(msg);
+    } finally {
+      evt.target.value = '';
+    }
+  }
+
+  function parseExportedStateFromCsv(text) {
+    const lines = text.split(/\r?\n/).map(l => l.trim());
+    // Prefer base64 payload
+    const b64Line = lines.find(l => l.startsWith('#BASE64:')) || lines.find(l => l.startsWith('"#BASE64:'));
+    if (b64Line) {
+      let b64 = b64Line.replace(/^"?#BASE64:/,'').replace(/"$/,'');
+      b64 = b64.replace(/\s+/g,'');
+      const json = base64DecodeUtf8(b64);
+      return JSON.parse(json);
+    }
+    // Fallback: JSON chunk format (#JSON: ...)
+    const chunks = [];
+    for (let raw of lines) {
+      if (raw == null) continue;
+      const idx = raw.indexOf('#JSON:');
+      if (idx >= 0) {
+        let chunk = raw.slice(idx + 6);
+        chunk = chunk.trim();
+        if ((chunk.startsWith('"') && chunk.endsWith('"')) || (chunk.startsWith("'") && chunk.endsWith("'"))) {
+          chunk = chunk.slice(1, -1);
+        }
+        chunk = chunk.replace(/""/g, '"');
+        chunks.push(chunk);
+      }
+    }
+    if (!chunks.length) throw new Error('NO_JSON');
+    const payload = chunks.join('');
+    return JSON.parse(payload);
+  }
+
+  function base64EncodeUtf8(str) {
+    return btoa(unescape(encodeURIComponent(str)));
+  }
+  function base64DecodeUtf8(b64) {
+    return decodeURIComponent(escape(atob(b64)));
+  }
+
   function renderIncomeBreakdown() {
     const wrap = document.getElementById('incomeBreakdownList');
     if (!wrap) return;
     const income = toNumber(currentBudget().income);
-    const total = totalExpenses();
-    const list = currentBudget().categories.map(c => ({ name: c.name, amount: toNumber(c.amount), color: c.color || '#34d399' }))
+    const total = effectiveExpensesTotal();
+    const list = getEffectiveCategoryBreakdown().map(c => ({ name: c.name, amount: toNumber(c.amount), color: c.color || '#34d399' }))
       .filter(i => i.amount > 0)
       .sort((a, b) => b.amount - a.amount);
     wrap.innerHTML = '';
@@ -483,6 +676,187 @@
       `;
       wrap.appendChild(row);
     }
+  }
+
+  // Day grid rendering and filtering
+  function renderDayGrid() {
+    if (!els.dayGrid) return;
+    els.dayGrid.innerHTML = '';
+    const [y, m] = (state.month || formatMonthInputValue(new Date())).split('-').map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const list = getTxListForMonth();
+    const txByDay = new Map();
+    for (const t of list) {
+      const d = String(t.date || '').slice(8, 10);
+      if (!d) continue;
+      const key = Number(d);
+      txByDay.set(key, (txByDay.get(key) || 0) + 1);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'day' + (txByDay.has(d) ? ' has-tx' : '');
+      btn.textContent = String(d);
+      btn.addEventListener('click', () => selectDay(d));
+      els.dayGrid.appendChild(btn);
+    }
+    if (els.dayPanelLabel) els.dayPanelLabel.textContent = 'Select a day';
+    if (els.dayTxList) els.dayTxList.innerHTML = '';
+  }
+
+  function selectDay(dayNum) {
+    if (!els.dayGrid) return;
+    for (const child of els.dayGrid.children) child.classList.remove('selected');
+    const idx = dayNum - 1;
+    if (els.dayGrid.children[idx]) els.dayGrid.children[idx].classList.add('selected');
+    const [y, m] = (state.month || formatMonthInputValue(new Date())).split('-').map(Number);
+    const dayStr = String(dayNum).padStart(2, '0');
+    const label = new Date(y, m - 1, dayNum).toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' });
+    if (els.dayPanelLabel) els.dayPanelLabel.textContent = label;
+    const list = getTxListForMonth().filter(t => String(t.date || '').slice(0, 10) === `${y}-${String(m).padStart(2, '0')}-${dayStr}`);
+    if (!els.dayTxList) return;
+    els.dayTxList.innerHTML = '';
+    for (const tx of list) {
+      const row = document.createElement('div');
+      row.className = 'table-row';
+      const catColor = getCategoryColorByName(tx.category);
+      row.style.background = hexToRgba(catColor, 0.12);
+      row.style.borderLeft = `4px solid ${catColor}`;
+      row.innerHTML = `
+        <div>${escapeHtml(tx.desc || '')}</div>
+        <div>${escapeHtml(tx.category || '-')}</div>
+        <div>${escapeHtml(tx.type)}</div>
+        <div class="right">${formatCurrency(tx.type === 'expense' ? -Math.abs(tx.amount) : tx.amount, state.currency)}</div>
+        <div class="center"><button class="danger" type="button">Remove</button></div>
+      `;
+      row.querySelector('button').addEventListener('click', () => { removeTransaction(tx.id); selectDay(dayNum); });
+      els.dayTxList.appendChild(row);
+    }
+  }
+
+  // Transactions
+  function getTxListForMonth(month = state.month) {
+    const acct = getActiveAccount();
+    if (!acct.transactions) acct.transactions = {};
+    if (!acct.transactions[month]) acct.transactions[month] = [];
+    return acct.transactions[month];
+  }
+
+  function addTransaction() {
+    const date = (els.txDateInput && els.txDateInput.value) || '';
+    const desc = (els.txDescInput && els.txDescInput.value || '').trim();
+    const category = (els.txCategorySelect && els.txCategorySelect.value) || '';
+    const type = (els.txTypeSelect && els.txTypeSelect.value) || 'expense';
+    const amount = toNumber(els.txAmountInput && els.txAmountInput.value);
+    if (!date || !amount) { flash(els.addTxBtn); return; }
+    const targetMonth = String(date).slice(0,7);
+    const list = getTxListForMonth(targetMonth);
+    list.push({ id: id(), date, desc, category, type, amount });
+    if (els.txDescInput) els.txDescInput.value = '';
+    if (els.txAmountInput) els.txAmountInput.value = '';
+    // Switch view to the month of the transaction
+    if (targetMonth !== state.month) {
+      els.monthInput.value = targetMonth;
+      switchToMonth(targetMonth);
+    } else {
+      renderDayGrid();
+      render();
+    }
+  }
+
+  function renderTxList() {
+    if (!els.txList) return;
+    const list = getTxListForMonth();
+    els.txList.innerHTML = '';
+    for (const tx of list) {
+      const row = document.createElement('div');
+      row.className = 'table-row';
+      row.dataset.id = tx.id;
+      row.innerHTML = `
+        <div>${escapeHtml(tx.date)}</div>
+        <div>${escapeHtml(tx.desc || '')}</div>
+        <div>${escapeHtml(tx.category || '-')}</div>
+        <div>${escapeHtml(tx.type)}</div>
+        <div class="right">${formatCurrency(tx.type === 'expense' ? -Math.abs(tx.amount) : tx.amount, state.currency)}</div>
+        <div class="center"><button class="danger" type="button">Remove</button></div>
+      `;
+      row.querySelector('button').addEventListener('click', () => removeTransaction(tx.id));
+      els.txList.appendChild(row);
+    }
+  }
+
+  function removeTransaction(idToRemove) {
+    const list = getTxListForMonth();
+    const idx = list.findIndex(t => t.id === idToRemove);
+    if (idx >= 0) list.splice(idx, 1);
+    renderTxList();
+    renderDayGrid();
+    render();
+  }
+
+  function populateTxCategoryOptions() {
+    if (!els.txCategorySelect) return;
+    const names = Array.from(new Set(currentBudget().categories.map(c => c.name)));
+    els.txCategorySelect.innerHTML = ['<option value="">— None —</option>'].concat(names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`)).join('');
+  }
+
+  function effectiveExpensesTotal() {
+    const tx = getTxListForMonth();
+    const planned = totalExpenses();
+    const txExpense = tx.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(toNumber(t.amount)), 0);
+    // Income transactions are not added here; income is tracked separately in the budget
+    return round2(planned + txExpense);
+  }
+
+  function getEffectiveCategoryBreakdown() {
+    const base = currentBudget().categories.map(c => ({ name: c.name, amount: toNumber(c.amount), color: c.color || '#34d399' }));
+    const map = new Map(base.map(c => [c.name.toLowerCase(), { ...c }]));
+    const tx = getTxListForMonth();
+    for (const t of tx) {
+      if (t.type !== 'expense') continue;
+      const key = (t.category || 'Uncategorized').toLowerCase();
+      if (!map.has(key)) map.set(key, { name: t.category || 'Uncategorized', amount: 0, color: getCategoryColorByName(t.category) });
+      const current = map.get(key);
+      current.amount = round2(current.amount + Math.abs(toNumber(t.amount)));
+    }
+    return Array.from(map.values());
+  }
+
+  function buildDonutDataset(expenses, remaining) {
+    const labels = [];
+    const data = [];
+    const colors = [];
+    const source = getEffectiveCategoryBreakdown();
+    for (const c of source) {
+      const amt = toNumber(c.amount);
+      if (amt > 0) {
+        labels.push(c.name);
+        data.push(amt);
+        colors.push(c.color || getCategoryColorByName(c.name) || '#34d399');
+      }
+    }
+    labels.push('Remaining');
+    data.push(remaining);
+    colors.push('#0ea5e9');
+    return { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] };
+  }
+
+  function getCategoryColorByName(name) {
+    if (!name) return '#34d399';
+    const found = currentBudget().categories.find(c => (c.name || '').toLowerCase() === String(name).toLowerCase());
+    return (found && found.color) || '#34d399';
+  }
+
+  function hexToRgba(hex, alpha) {
+    try {
+      let h = String(hex).replace('#','');
+      if (h.length === 3) h = h.split('').map(ch => ch+ch).join('');
+      const num = parseInt(h, 16);
+      const r = (num >> 16) & 255;
+      const g = (num >> 8) & 255;
+      const b = num & 255;
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    } catch { return `rgba(52, 211, 153, ${alpha})`; }
   }
 
   // Helpers
@@ -510,15 +884,25 @@
   }
 
   function getOrCreateBudget(month) {
-    if (!state.budgets) state.budgets = {};
-    if (!state.budgets[month]) {
-      state.budgets[month] = {
+    if (!state.accounts) state.accounts = { 'Default': { budgets: {}, monthlyHistory: [], transactions: {} } };
+    if (!state.activeAccount) state.activeAccount = Object.keys(state.accounts)[0] || 'Default';
+    const acct = state.accounts[state.activeAccount] || (state.accounts[state.activeAccount] = { budgets: {}, monthlyHistory: [], transactions: {} });
+    if (!acct.budgets[month]) {
+      acct.budgets[month] = {
         income: 0,
         goal: 0,
         categories: structuredClone(DEFAULT_CATEGORIES),
       };
     }
-    return state.budgets[month];
+    return acct.budgets[month];
+  }
+
+  function getActiveAccount() {
+    if (!state.accounts) state.accounts = { 'Default': { budgets: {}, monthlyHistory: [], transactions: {} } };
+    const name = state.activeAccount || Object.keys(state.accounts)[0] || 'Default';
+    state.activeAccount = name;
+    if (!state.accounts[name]) state.accounts[name] = { budgets: {}, monthlyHistory: [], transactions: {} };
+    return state.accounts[name];
   }
 
   function switchToMonth(newMonth) {
@@ -530,7 +914,13 @@
     // Reflect inputs
     els.incomeInput.value = toInput(b.income);
     els.goalInput.value = toInput(b.goal);
+    if (els.txDateInput) {
+      const d = els.txDateInput.value || `${newMonth}-01`;
+      const currentPrefix = String(d).slice(0,7);
+      els.txDateInput.value = currentPrefix === newMonth ? d : `${newMonth}-01`;
+    }
     renderCategories();
+    renderDayGrid();
     render();
     persist();
   }
@@ -549,14 +939,20 @@
   function flash(el) { if (!el) return; el.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-2px)' }, { transform: 'translateY(0)' }], { duration: 240 }); }
 
   function resetAll() {
-    state = createDefaultState();
+    // Reset only the current account
+    const acct = getActiveAccount();
+    acct.budgets = {};
+    acct.transactions = {};
+    acct.monthlyHistory = [];
+    // Keep global currency, theme, other accounts
     els.monthInput.value = state.month;
     els.currencySelect.value = state.currency;
     els.incomeInput.value = '';
     els.goalInput.value = '';
     renderCategories();
+    renderDayGrid();
     render();
-    localStorage.removeItem(STORAGE_KEY);
+    persist(true);
     flash(els.resetBtn);
   }
 })();
